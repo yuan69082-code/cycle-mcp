@@ -1,5 +1,5 @@
 from mcp.server.fastmcp import FastMCP
-from datetime import date, datetime
+from datetime import date
 import json
 from pathlib import Path
 
@@ -11,6 +11,7 @@ DATA = Path(__file__).parent / "cycle.json"
 def load():
     if not DATA.exists():
         return {"periods": [], "records": {}}
+
     data = json.loads(DATA.read_text(encoding="utf-8"))
     data.setdefault("periods", [])
     data.setdefault("records", {})
@@ -18,7 +19,10 @@ def load():
 
 
 def save(data):
-    DATA.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    DATA.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
 
 
 def today():
@@ -129,29 +133,86 @@ def record_today(raw_text: str) -> str:
 
 
 @mcp.tool()
-def start_period() ->    """记录今天结束月经"""
+def start_period() -> str:
+    """记录今天开始月经。"""
     data = load()
+    day = today()
+    data["periods"].append({"start": day, "end": None})
+    record = get_record(data, day)
+    record["period"] = "start"
+    save(data)
+    return f"已记录 {day} 月经开始。"
+
+
+@mcp.tool()
+def end_period() -> str:
+    """记录今天结束月经。"""
+    data = load()
+    day = today()
 
     for item in reversed(data["periods"]):
-        if item["end"] is None:
-            item["end"] = str(date.today())
+        if item.get("end") is None:
+            item["end"] = day
+            record = get_record(data, day)
+            record["period"] = "end"
             save(data)
-            return f"已记录今天 {date.today()} 为月经结束。"
+            return f"已记录 {day} 月经结束。"
 
     return "没有找到正在进行中的经期。"
 
 
 @mcp.tool()
-def history():
-    """查看历史记录"""
-
+def get_day_detail(day: str = "") -> str:
+    """查看某一天的详细记录。day 格式 YYYY-MM-DD，不填默认今天。"""
     data = load()
+    day = day or today()
+    record = data.get("records", {}).get(day)
 
-    if not data["periods"]:
-        return "暂无记录。"
+    if not record:
+        return f"{day} 暂无记录。"
 
-    return data["periods"]
+    return (
+        f"📅 {day}\n\n"
+        f"心情：{record.get('mood') or '-'}\n"
+        f"流量：{record.get('flow') or '-'}\n"
+        f"疼痛：{record.get('pain') or '-'}\n"
+        f"颜色：{record.get('color') or '-'}\n"
+        f"备注：{record.get('note') or '-'}"
+    )
 
 
-if __name__ == "__main__":
-    mcp.run()
+@mcp.tool()
+def get_month_view(year: int = 0, month: int = 0) -> str:
+    """查看某个月的月历记录。"""
+    data = load()
+    today_date = date.today()
+
+    year = year or today_date.year
+    month = month or today_date.month
+
+    first = date(year, month, 1)
+    if month == 12:
+        next_month = date(year + 1, 1, 1)
+    else:
+        next_month = date(year, month + 1, 1)
+
+    days = (next_month - first).days
+    lines = [f"🌸 {year}-{month:02d} 周期月历", ""]
+
+    for d in range(1, days + 1):
+        day = f"{year}-{month:02d}-{d:02d}"
+        record = data.get("records", {}).get(day, {})
+
+        marks = []
+        if record.get("period") == "start":
+            marks.append("🩸开始")
+        elif record.get("period") == "end":
+            marks.append("🩸结束")
+        if record.get("mood"):
+            marks.append("🙂")
+        if record.get("pain"):
+            marks.append("疼")
+        if record.get("flow"):
+            marks.append("量")
+
+        text = " ".join(marks) if marks else "-
