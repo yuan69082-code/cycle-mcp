@@ -169,21 +169,42 @@ textarea{
 
 <script>
 
-const calendar=document.getElementById("calendar");
+const calendar = document.getElementById("calendar");
 
-for(let i=1;i<=31;i++){
+let selectedDay = new Date().getDate();
 
-const d=document.createElement("div");
+function renderCalendar(){
 
-d.className="day";
+    calendar.innerHTML="";
 
-d.innerText=i;
+    for(let i=1;i<=31;i++){
 
-calendar.appendChild(d);
+        const day=document.createElement("div");
+
+        day.className="day";
+
+        day.innerText=i;
+
+        if(i===selectedDay){
+            day.style.background="#ffd6e8";
+            day.style.fontWeight="bold";
+        }
+
+        day.onclick=()=>{
+
+            selectedDay=i;
+
+            renderCalendar();
+
+            document.getElementById("currentDate").innerText=
+            `7月${i}日`;
+
+        };
+
+        calendar.appendChild(day);
+
+    }
 
 }
 
-</script>
-
-</body>
-</html>
+renderCalendar();
